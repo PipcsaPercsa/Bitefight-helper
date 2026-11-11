@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BiteFight Ruins Helper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #0b0708; color: #d1d5db; font-family: system-ui, -apple-system, sans-serif; }
+        .card-glow-red { border: 1px solid #7f1d1d; box-shadow: 0 0 10px rgba(185, 28, 28, 0.2); background-color: rgba(20, 20, 23, 0.95); }
+        .card-glow-blue { border: 1px solid #1e3a8a; box-shadow: 0 0 10px rgba(29, 78, 216, 0.2); background-color: rgba(20, 20, 23, 0.95); }
+        .disabled-card { opacity: 0.35; filter: grayscale(100%); }
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+    </style>
+</head>
+<body class="p-2 sm:p-4 md:p-6 min-h-screen">
+    <div class="max-w-6xl mx-auto space-y-5">
+        
+        <!-- FEJLÉC: Szint/Réteg váltó és Fajválasztó -->
+        <header class="flex flex-wrap justify-between items-center bg-zinc-900 border border-zinc-800 p-3 sm:p-4 rounded-xl gap-3">
+            <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-zinc-400">SZINT:</span>
+                <div class="flex gap-1">
+                    <button onclick="changeTier(-10)" class="px-2 py-1 rounded text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700">-10</button>
+                    <button onclick="changeTier(-1)" class="px-2 py-1 rounded text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700">-1</button>
+                    <span id="tier-display" class="px-3 py-1 rounded text-xs font-bold bg-red-900 text-white border border-red-600 min-w-[36px] text-center">2</span>
+                    <button onclick="changeTier(1)" class="px-2 py-1 rounded text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700">+1</button>
+                    <button onclick="changeTier(10)" class="px-2 py-1 rounded text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border border-zinc-700">+10</button>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="setRace('vampire')" id="btn-vampire" class="px-3 py-1 rounded font-bold text-xs bg-zinc-800 text-zinc-400 border border-zinc-700">Vámpír</button>
+                <button onclick="setRace('werewolf')" id="btn-werewolf" class="px-3 py-1 rounded font-bold text-xs bg-blue-900 text-white border border-blue-600">Vérfarkas</button>
+            </div>
+        </header>
+
+        <!-- ELLENSÉG RÉSZLEG -->
+        <section class="bg-zinc-950 border border-zinc-900 rounded-xl p-3 sm:p-4">
+            <div class="flex justify-between items-center mb-3">
+                <h2 class="text-base sm:text-lg font-bold text-red-500 flex items-center gap-2">
+                    <i class="fa-solid fa-shield-halved"></i> Ellenséges Haderő (Ősi Romok)
+                </h2>
+                <div class="flex gap-1 text-[11px]">
+                    <button onclick="filterEnemies('all')" class="px-2 py-0.5 rounded bg-red-950 text-red-300 border border-red-800">Mind</button>
+                    <button onclick="filterEnemies('Előőrs')" class="px-2 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-zinc-800">Előőrs</button>
+                    <button onclick="filterEnemies('Hátvéd')" class="px-2 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-zinc-800">Hátvéd</button>
+                </div>
+            </div>
+            <div id="enemy-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3"></div>
+        </section>
+
+        <!-- SAJÁT SEREG RÉSZLEG -->
+        <section class="bg-zinc-950 border border-zinc-900 rounded-xl p-3 sm:p-4">
+            <div class="flex flex-wrap justify-between items-center mb-3 gap-2">
+                <h2 class="text-base sm:text-lg font-bold text-blue-400 flex items-center gap-2">
+                    <i class="fa-solid fa-user-shield"></i> Saját Egységek (<span id="race-title">Farkasember Sereg</span>)
+                </h2>
+                <div class="flex items-center gap-3">
+                    <span id="army-capacity" class="text-xs font-bold text-zinc-300 bg-zinc-900 px-2.5 py-1 rounded border border-zinc-800">Felhasznált haderő: 0 / 30</span>
+                    <div class="flex gap-1 text-[11px]">
+                        <button onclick="filterMyUnits('all')" class="px-2 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-800">Mind</button>
+                        <button onclick="filterMyUnits('Előőrs')" class="px-2 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-zinc-800">Előőrs</button>
+                        <button onclick="filterMyUnits('Hátvéd')" class="px-2 py-0.5 rounded bg-zinc-900 text-zinc-400 border border-zinc-800">Hátvéd</button>
+                    </div>
+                </div>
+            </div>
+            <div id="my-units-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3"></div>
+        </section>
+
+        <!-- AKCIÓGOMBOK -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+            <button onclick="simulateBattle()" class="w-full bg-gradient-to-r from-red-950 to-red-900 hover:from-red-900 hover:to-red-800 text-red-200 font-bold py-3 px-4 rounded-xl border border-red-700 shadow-lg flex items-center justify-center gap-2 text-sm sm:text-base">
+                <i class="fa-solid fa-skull-crossbones"></i> AKTUÁLIS CSATA SZIMULÁLÁSA
+            </button>
+            <button onclick="findOptimalArmy()" class="w-full bg-gradient-to-r from-emerald-950 to-emerald-900 hover:from-emerald-900 hover:to-emerald-800 text-emerald-200 font-bold py-3 px-4 rounded-xl border border-emerald-700 shadow-lg flex items-center justify-center gap-2 text-sm sm:text-base">
+                <i class="fa-solid fa-percent"></i> OPTIMÁLIS ALAKZAT KERESÉSE
+            </button>
+        </div>
+
+    </div>
+
+    <!-- EREDMÉNY MODÁLIS ABLAK -->
+    <div id="result-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-3 z-50">
+        <div class="bg-zinc-900 border border-zinc-700 rounded-2xl max-w-2xl w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-zinc-800 pb-3">
+                <h3 id="modal-title" class="text-lg font-bold text-emerald-400 flex items-center gap-2">
+                    <i class="fa-solid fa-flag"></i> Csata Eredménye
+                </h3>
+                <button onclick="closeModal()" class="text-zinc-400 hover:text-white text-lg font-bold px-2 py-1"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="modal-content" class="space-y-4 text-sm text-zinc-300"></div>
+            <div class="flex justify-end pt-2 border-t border-zinc-800">
+                <button onclick="closeModal()" class="bg-zinc-800 hover:bg-zinc-700 text-white font-bold px-4 py-2 rounded-xl text-xs">Bezárás</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentRace = 'werewolf';
+        let enemyFilter = 'all';
+        let myFilter = 'all';
+        let currentTier = 2;
+
+        function getCapacityLimit(tier) {
+            return 20 + (tier - 1) * 10;
+        }
+
+        const enemies = [
+            { id: 'csontvaz', name: 'Csontváz', img: '25.jpg', pos: 'Előőrs', type: 'Brutális', atk: 3, hp: 4, spd: 3, count: 0 },
+            { id: 'zombi', name: 'Zombi', img: '1.jpg', pos: 'Előőrs', type: 'Okkult', atk: 2, hp: 7, spd: 2, count: 0 },
+            { id: 'kultista', name: 'Élőholt kultista', img: '2.jpg', pos: 'Hátvéd', type: 'Okkult', atk: 5, hp: 1, spd: 1, count: 0 },
+            { id: 'csontszarny', name: 'Csontszárny', img: '3.jpg', pos: 'Hátvéd', type: 'Okkult', atk: 6, hp: 3, spd: 4, count: 0 },
+            { id: 'felpuffadt', name: 'Felpuffadt holttest', img: '4.jpg', pos: 'Előőrs', type: 'Szörnyszülött', atk: 1, hp: 10, spd: 1, count: 0 },
+            { id: 'szellem', name: 'Szellem', img: '5.jpg', pos: 'Hátvéd', type: 'Okkult', atk: 7, hp: 2, spd: 4, count: 0 },
+            { id: 'visszatert', name: 'Visszatért', img: '6.jpg', pos: 'Előőrs', type: 'Brutális', atk: 8, hp: 12, spd: 4, count: 0 },
+            { id: 'csontorias', name: 'Csontóriás', img: '7.jpg', pos: 'Előőrs', type: 'Szörnyszülött', atk: 10, hp: 25, spd: 1, count: 0 },
+            { id: 'tenyeszanya', name: 'Tenyészanya', img: '8.jpg', pos: 'Hátvéd', type: 'Szörnyszülött', atk: 9, hp: 18, spd: 2, count: 0 },
+            { id: 'lich', name: 'Lich', img: '26.jpg', pos: 'Hátvéd', type: 'Okkult', atk: 40, hp: 25, spd: 3, count: 0 }
+        ];
+
+        const baseUnits = [
+            { id: 'u1', name: 'Rémfarkas', vampName: 'Denevérraj', imgW: '10.jpg', imgV: '9.jpg', pos: 'Hátvéd', type: 'Brutális', atk: 2, hp: 2, spd: 5, power: 2 },
+            { id: 'u2', name: 'Hollóvadász', vampName: 'Hullarabló', imgW: '12.jpg', imgV: '11.jpg', pos: 'Előőrs', type: 'Brutális', atk: 3, hp: 5, spd: 2, power: 3 },
+            { id: 'u3', name: 'Éjvadász', vampName: 'Vámpír Thrall', imgW: '14.jpg', imgV: '13.jpg', pos: 'Előőrs', type: 'Okkult', atk: 6, hp: 4, spd: 4, power: 4 },
+            { id: 'u4', name: 'Fantom Portyázó', vampName: 'Kísértet', imgW: '16.jpg', imgV: '15.jpg', pos: 'Hátvéd', type: 'Szörnyszülött', atk: 7, hp: 4, spd: 4, power: 7 },
+            { id: 'u5', name: 'Veszett Sámán', vampName: 'Szellem Idéző', imgW: '18.jpg', imgV: '17.jpg', pos: 'Hátvéd', type: 'Okkult', atk: 9, hp: 5, spd: 2, power: 10 },
+            { id: 'u6', name: 'Sírkarom', vampName: 'Gargoyle', imgW: '20.jpg', imgV: '19.jpg', pos: 'Előőrs', type: 'Szörnyszülött', atk: 12, hp: 12, spd: 3, power: 15 },
+            { id: 'u7', name: 'Vérhold Jóslat', vampName: 'Vérboszorkány', imgW: '22.jpg', imgV: '21.jpg', pos: 'Hátvéd', type: 'Okkult', atk: 14, hp: 8, spd: 3, power: 18 },
+            { id: 'u8', name: 'Pokolszáj', vampName: 'Rothadó Száj', imgW: '24.jpg', imgV: '23.jpg', pos: 'Előőrs', type: 'Szörnyszülött', atk: 30, hp: 90, spd: 1, power: 30 }
+        ];
+
+        function getActiveUnits() {
+            return baseUnits.map(u => ({
+                ...u,
+                name: currentRace === 'vampire' ? u.vampName : u.name,
+                img: currentRace === 'vampire' ? u.imgV : u.imgW
+            }));
+        }
+
+        let armiesData = {
+            werewolf: baseUnits.map(() => ({ count: 0, max: '', enabled: true })),
+            vampire: baseUnits.map(() => ({ count: 0, max: '', enabled: true }))
+        };
+
+        function calculateTotalUsed() {
+            const currentArmy = armiesData[currentRace];
+            const activeUnitsList = getActiveUnits();
+            let totalUsed = 0;
+            currentArmy.forEach((item, idx) => {
+                totalUsed += (parseInt(item.count) || 0) * activeUnitsList[idx].power;
+            });
+            return totalUsed;
+        }
+
+        function updateCapacityDisplay() {
+            const totalUsed = calculateTotalUsed();
+            const limit = getCapacityLimit(currentTier);
+            const capEl = document.getElementById('army-capacity');
+            capEl.innerText = `Felhasznált haderő: ${totalUsed} / ${limit}`;
+            
+            if (totalUsed > limit) {
+                capEl.className = 'text-xs font-bold text-red-400 bg-red-950 px-2.5 py-1 rounded border border-red-800';
+            } else {
+                capEl.className = 'text-xs font-bold text-zinc-300 bg-zinc-900 px-2.5 py-1 rounded border border-zinc-800';
+            }
+        }
+
+        function renderEnemies() {
+            const grid = document.getElementById('enemy-grid');
+            const list = enemyFilter === 'all' ? enemies : enemies.filter(e => e.pos === enemyFilter);
+            
+            grid.innerHTML = list.map((e) => {
+                const realIndex = enemies.findIndex(item => item.id === e.id);
+                return `
+                <div class="bg-zinc-900 rounded-lg p-2 card-glow-red flex flex-col justify-between border border-zinc-800">
+                    <div>
+                        <div class="w-full h-32 sm:h-36 bg-black rounded border border-zinc-800 mb-1.5 overflow-hidden flex items-center justify-center">
+                            <img src="${e.img}" alt="${e.name}" class="w-full h-full object-contain" onerror="this.onerror=null; this.src='https://via.placeholder.com/100x120?text=Kép';">
+                        </div>
+                        <div class="text-[9px] sm:text-[10px] text-zinc-400 uppercase text-center font-semibold tracking-tighter truncate">${e.pos} • ${e.type}</div>
+                        <h4 class="text-xs font-bold text-zinc-100 truncate text-center mb-1">${e.name}</h4>
+                        
+                        <div class="flex justify-around text-[10px] sm:text-[11px] text-zinc-300 bg-zinc-950 py-1 rounded mb-2 border border-zinc-800 font-mono">
+                            <span>⚔️ ${e.atk}</span><span>❤️ ${e.hp}</span><span>🏃 ${e.spd}</span>
+                        </div>
+                    </div>
+                    <div>
+                        <input type="number" min="0" value="${e.count}" onchange="updateEnemyCount(${realIndex}, this.value)" class="w-full text-center font-bold text-red-500 text-xs sm:text-sm bg-zinc-950 border border-zinc-800 rounded py-1 mb-1" placeholder="0">
+                        <div class="grid grid-cols-6 gap-0.5 text-[9px] font-bold">
+                            <button onclick="changeEnemyCount(${realIndex}, -10)" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded py-1">-10</button>
+                            <button onclick="changeEnemyCount(${realIndex}, -5)" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded py-1">-5</button>
+                            <button onclick="changeEnemyCount(${realIndex}, -1)" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded py-1">-1</button>
+                            <button onclick="changeEnemyCount(${realIndex}, 1)" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded py-1">+1</button>
+                            <button onclick="changeEnemyCount(${realIndex}, 5)" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded py-1">+5</button>
+                            <button onclick="changeEnemyCount(${realIndex}, 10)" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded py-1">+10</button>
+                        </div>
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        function renderMyUnits() {
+            const grid = document.getElementById('my-units-grid');
+            const activeUnitsList = getActiveUnits();
+            const armyState = armiesData[currentRace];
+            
+            const filteredIndices = [];
+            activeUnitsList.forEach((u, idx) => {
+                if (myFilter === 'all' || u.pos === myFilter) {
+                    filteredIndices.push(idx);
+                }
+            });
+
+            grid.innerHTML = filteredIndices.map((realIndex) => {
+                const u = activeUnitsList[realIndex];
+                const state = armyState[realIndex];
+                return `
+                <div class="bg-zinc-900 rounded-lg p-2 card-glow-blue flex flex-col justify-between border border-zinc-800 ${!state.enabled ? 'disabled-card' : ''}">
+                    <div>
+                        <div class="w-full h-32 sm:h-36 bg-black rounded border border-zinc-800 mb-1.5 overflow-hidden flex items-center justify-center">
+                            <img src="${u.img}" alt="${u.name}" class="w-full h-full object-contain" onerror="this.onerror=null; this.src='https://via.placeholder.com/100x120?text=Kép';">
+                        </div>
+                        <div class="flex justify-between items-center text-[9px] sm:text-[10px] text-zinc-400 uppercase font-semibold mb-0.5">
+                            <span class="truncate">${u.pos} • ${u.type}</span>
+                            <input type="checkbox" ${state.enabled ? 'checked' : ''} onchange="toggleMyUnit(${realIndex})" class="w-3.5 h-3.5 accent-blue-600 cursor-pointer">
+                        </div>
+                        <h4 class="text-xs font-bold text-zinc-100 truncate mb-1">${u.name}</h4>
+                        
+                        <div class="flex justify-around text-[10px] sm:text-[11px] text-zinc-300 bg-zinc-950 py-1 rounded mb-1.5 border border-zinc-800 font-mono">
+                            <span>⚔️ ${u.atk}</span><span>❤️ ${u.hp}</span><span>🏃 ${u.spd}</span>
+                        </div>
+
+                        <div class="flex items-center justify-between text-[10px] text-zinc-400 mb-2 bg-zinc-950 px-1.5 py-0.5 rounded border border-zinc-800">
+                            <span>Max limit:</span>
+                            <input type="number" min="0" value="${state.max}" onchange="updateMyMax(${realIndex}, this.value)" class="w-12 text-center font-bold text-blue-400 bg-transparent focus:outline-none" placeholder="∞">
+                        </div>
+                    </div>
+                    <div>
+                        <input type="number" min="0" value="${state.count}" onchange="setMyCount(${realIndex}, this.value)" class="w-full text-center font-bold text-blue-500 text-xs sm:text-sm bg-zinc-950 border border-zinc-800 rounded py-1 mb-1" placeholder="0">
+                        <div class="grid grid-cols-6 gap-0.5 text-[9px] font-bold">
+                            <button onclick="changeMyCount(${realIndex}, -10)" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded py-1">-10</button>
+                            <button onclick="changeMyCount(${realIndex}, -5)" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded py-1">-5</button>
+                            <button onclick="changeMyCount(${realIndex}, -1)" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded py-1">-1</button>
+                            <button onclick="changeMyCount(${realIndex}, 1)" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded py-1">+1</button>
+                            <button onclick="changeMyCount(${realIndex}, 5)" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded py-1">+5</button>
+                            <button onclick="changeMyCount(${realIndex}, 10)" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded py-1">+10</button>
+                        </div>
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        function updateEnemyCount(idx, val) { enemies[idx].count = Math.max(0, parseInt(val) || 0); renderEnemies(); }
+        function changeEnemyCount(idx, delta) { enemies[idx].count = Math.max(0, enemies[idx].count + delta); renderEnemies(); }
+
+        function setMyCount(idx, targetVal) {
+            const activeUnits = getActiveUnits();
+            const unit = activeUnits[idx];
+            const armyState = armiesData[currentRace];
+            
+            let targetCount = Math.max(0, parseInt(targetVal) || 0);
+            
+            if (armyState[idx].max !== '' && !isNaN(armyState[idx].max)) {
+                targetCount = Math.min(targetCount, parseInt(armyState[idx].max));
+            }
+
+            const currentTotalWithoutThis = calculateTotalUsed() - (armyState[idx].count * unit.power);
+            const limit = getCapacityLimit(currentTier);
+            const remainingCapacity = limit - currentTotalWithoutThis;
+            const maxUnitsAllowedByCapacity = Math.floor(remainingCapacity / unit.power);
+
+            targetCount = Math.min(targetCount, Math.max(0, maxUnitsAllowedByCapacity));
+
+            armyState[idx].count = targetCount;
+            renderMyUnits();
+            updateCapacityDisplay();
+        }
+
+        function changeMyCount(idx, delta) {
+            const armyState = armiesData[currentRace];
+            const currentCount = armyState[idx].count || 0;
+            setMyCount(idx, currentCount + delta);
+        }
+
+        function updateMyMax(idx, val) { 
+            armiesData[currentRace][idx].max = val === '' ? '' : Math.max(0, parseInt(val) || 0); 
+            setMyCount(idx, armiesData[currentRace][idx].count);
+        }
+
+        function toggleMyUnit(idx) { 
+            armiesData[currentRace][idx].enabled = !armiesData[currentRace][idx].enabled; 
+            if (!armiesData[currentRace][idx].enabled) {
+                armiesData[currentRace][idx].count = 0;
+            }
+            renderMyUnits(); 
+            updateCapacityDisplay();
+        }
+
+        function filterEnemies(pos) { enemyFilter = pos; renderEnemies(); }
+        function filterMyUnits(pos) { myFilter = pos; renderMyUnits(); }
+        
+        function setRace(race) {
+            currentRace = race;
+            document.getElementById('race-title').innerText = race === 'vampire' ? 'Vámpír Sereg' : 'Farkasember Sereg';
+            document.getElementById('btn-vampire').className = race === 'vampire' ? 'px-3 py-1 rounded font-bold text-xs bg-red-900 text-white border border-red-600' : 'px-3 py-1 rounded font-bold text-xs bg-zinc-800 text-zinc-400 border border-zinc-700';
+            document.getElementById('btn-werewolf').className = race === 'werewolf' ? 'px-3 py-1 rounded font-bold text-xs bg-blue-900 text-white border border-blue-600' : 'px-3 py-1 rounded font-bold text-xs bg-zinc-800 text-zinc-400 border border-zinc-700';
+            renderMyUnits();
+            updateCapacityDisplay();
+        }
+
+        function changeTier(delta) {
+            currentTier = Math.max(1, currentTier + delta);
+            document.getElementById('tier-display').innerText = currentTier;
+            getActiveUnits().forEach((u, idx) => {
+                setMyCount(idx, armiesData[currentRace][idx].count);
+            });
+            updateCapacityDisplay();
+        }
+
+        // --- HARCI MOTOR ÉS OPTIMALIZÁLÓ LOGIKA ---
+        function getTypeMultiplier(atkType, defType) {
+            if (atkType === 'Brutális' && defType === 'Okkult') return 1.5;
+            if (atkType === 'Okkult' && defType === 'Szörnyszülött') return 1.5;
+            if (atkType === 'Szörnyszülött' && defType === 'Brutális') return 1.5;
+            if (atkType === 'Okkult' && defType === 'Brutális') return 0.5;
+            if (atkType === 'Szörnyszülött' && defType === 'Okkult') return 0.5;
+            if (atkType === 'Brutális' && defType === 'Szörnyszülött') return 0.5;
+            return 1.0;
+        }
+
+        function simulateBattle() {
+            const activeUnits = getActiveUnits();
+            const armyState = armiesData[currentRace];
+            
+            let totalMyPower = calculateTotalUsed();
+            let totalEnemyPower = enemies.reduce((sum, e) => sum + (e.count * (e.atk + e.hp)), 0);
+
+            let myUnitsList = activeUnits.map((u, idx) => ({ ...u, count: armyState[idx].count, enabled: armyState[idx].enabled }))
+                                         .filter(u => u.enabled && u.count > 0);
+
+            if (myUnitsList.length === 0 || totalEnemyPower === 0) {
+                showModal("Hiba", "<p class='text-red-400'>Kérlek add meg az ellenséges egységeket és állíts össze legalább egy saját egységet a seregbe!</p>");
+                return;
+            }
+
+            // Egyszerűsített harci szimulációs becslés típusok és sebesség alapján
+            let myTotalAtk = myUnitsList.reduce((sum, u) => sum + (u.atk * u.count), 0);
+            let myTotalHp = myUnitsList.reduce((sum, u) => sum + (u.hp * u.count), 0);
+            let enemyTotalAtk = enemies.reduce((sum, e) => sum + (e.atk * e.count), 0);
+            let enemyTotalHp = enemies.reduce((sum, e) => sum + (e.hp * e.count), 0);
+
+            let isVictory = (myTotalAtk * 1.2 + myTotalHp) >= (enemyTotalAtk + enemyTotalHp * 0.9);
+
+            // Veszteség számítás
+            let lossesHtml = "";
+            myUnitsList.forEach(u => {
+                let lossRatio = isVictory ? Math.min(1, (enemyTotalAtk / (myTotalHp + 1))) * 0.4 : 1.0;
+                let lostCount = Math.round(u.count * lossRatio);
+                let remainingCount = u.count - lostCount;
+
+                lossesHtml += `
+                    <div class="flex items-center justify-between bg-zinc-950 p-2 rounded border border-zinc-800">
+                        <div class="flex items-center gap-3">
+                            <img src="${u.img}" class="w-10 h-10 object-contain bg-black rounded border border-zinc-700">
+                            <div>
+                                <div class="font-bold text-xs text-white">${u.name}</div>
+                                <div class="text-[10px] text-zinc-400">Eredeti: ${u.count} db</div>
+                            </div>
+                        </div>
+                        <div class="text-right text-xs">
+                            <span class="text-emerald-400 font-bold">Maradt: ${remainingCount} db</span><br>
+                            <span class="text-red-400 font-semibold">Veszteség: -${lostCount} db</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            let resultHeader = isVictory 
+                ? `<div class="text-emerald-400 font-bold text-base flex items-center gap-2"><i class="fa-solid fa-trophy"></i> GYŐZELEM!</div>` 
+                : `<div class="text-red-500 font-bold text-base flex items-center gap-2"><i class="fa-solid fa-skull"></i> VERESÉG!</div>`;
+
+            let content = `
+                ${resultHeader}
+                <p class="text-xs text-zinc-300">A ${currentTier}. szintű romok elleni csata lefutott. Íme az egységek állapota és veszteségei:</p>
+                <div class="space-y-2 mt-2">${lossesHtml}</div>
+            `;
+
+            showModal("Csata Szimuláció Eredménye", content);
+        }
+
+        function findOptimalArmy() {
+            const limit = getCapacityLimit(currentTier);
+            const activeUnits = getActiveUnits();
+            const armyState = armiesData[currentRace];
+
+            // Szűrjük az engedélyezett egységeket
+            let available = activeUnits.map((u, idx) => ({ ...u, idx }))
+                                        .filter((u, idx) => armyState[idx].enabled);
+
+            if (available.length === 0) {
+                showModal("Hiba", "<p class='text-red-400'>Nincs engedélyezett egység a seregben! Pipálj be legalább egyet.</p>");
+                return;
+            }
+
+            // Alapértelmezett optimalizálás: hatékonyság (atk/power) szerinti elosztás a limiten belül
+            available.sort((a, b) => (b.atk / b.power) - (a.atk / a.power));
+
+            // Nullázzuk az összeset először
+            armyState.forEach(item => item.count = 0);
+
+            let remainingCapacity = limit;
+            for (let u of available) {
+                if (remainingCapacity <= 0) break;
+                let maxAllowed = Math.floor(remainingCapacity / u.power);
+                if (armyState[u.idx].max !== '' && !isNaN(armyState[u.idx].max)) {
+                    maxAllowed = Math.min(maxAllowed, parseInt(armyState[u.idx].max));
+                }
+                armyState[u.idx].count = maxAllowed;
+                remainingCapacity -= maxAllowed * u.power;
+            }
+
+            renderMyUnits();
+            updateCapacityDisplay();
+
+            showModal("Optimalizálás Kész", `<p class='text-emerald-400 font-bold'>A sereg sikeresen optimalizálva a(z) ${currentTier}. szintre (${limit} haderő keret) a tiltások és limitek figyelembevételével!</p>`);
+        }
+
+        function showModal(title, htmlContent) {
+            document.getElementById('modal-title').innerHTML = `<i class="fa-solid fa-flag"></i> ${title}`;
+            document.getElementById('modal-content').innerHTML = htmlContent;
+            document.getElementById('result-modal').classList.remove('hidden');
+            document.getElementById('result-modal').classList.add('flex');
+        }
+
+        function closeModal() {
+            document.getElementById('result-modal').classList.remove('flex');
+            document.getElementById('result-modal').classList.add('hidden');
+        }
+
+        renderEnemies();
+        renderMyUnits();
+        updateCapacityDisplay();
+    </script>
+</body>
+</html>
